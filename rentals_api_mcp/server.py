@@ -1,5 +1,7 @@
 from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
+from typing import Annotated
+from pydantic import Field, BaseModel
 import sqlite3
 
 mcp = MCPServer(
@@ -13,8 +15,30 @@ mcp = MCPServer(
     )
 )
 
+class RouteStatus(BaseModel):
+    route: str
+    requests: int
+    error_rate_pct: float
+    p95_ms: float
+
+class Overview(BaseModel):
+    as_of: str
+    window_minutes: int
+    version: str
+    requests_per_min: float
+    error_rate_pct: float
+    p50_ms: float
+    p95_ms: float
+    slo_breaches: list[str]
+    data_warning: str | None
+    routes: list[RouteStatus]
+
 
 SLO = {"p95_ms": 300, "errors_rate_pct": 1.0 }
+READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
+Minutes = Annotated[int, Field(ge=1, le=120)]
+
+
 
 
 
@@ -22,6 +46,14 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).resolve().parent.parent / "telemetry.db"
 
+
+@mcp.tool(annotations=READ_ONLY)
+def service_overview(minutes: Minutes = 5) -> Overview:
+    """Is it broken, The Service's health right now:  traffic, error rate, latency
+    SLO breaches and worst routes first.
+    Start every investigation
+    """
+    pass
 
 
 @mcp.resource(uri="mcp://rentals/version")
