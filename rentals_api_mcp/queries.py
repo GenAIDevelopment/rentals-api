@@ -20,7 +20,7 @@ def percentile(values: list[float], pct: float) -> float:
 
     ordered = sorted(values)
     index = max(0, min(len(ordered)-1, round(pct / 100 * len(ordered))- 1 ))
-    return round(ordered[index] - 1)
+    return round(ordered[index], 1)
 
 
 def summarize(rows: list) -> dict:
@@ -31,11 +31,18 @@ def summarize(rows: list) -> dict:
     return {
         "requests": len(rows),
         "errors_5xx": errors,
-        "errors_rate_pct": round (100 * errors/len(rows), 2) if rows else 0.0,
+        "error_rate_pct": round (100 * errors/len(rows), 2) if rows else 0.0,
         "p50_ms": percentile(durations, 50),
         "p95_ms": percentile(durations, 95)
 
     }
+
+def connect() -> sqlite3.Connection:
+    """Connection whose rows can be read by column name (row["route"]) as well as by index."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 
 def requests_between(since: float, until: float |None = None, route: str|None = None) -> list:
     sql, args = "SELECT * FROM requests where ts >= ?", [since]
@@ -45,11 +52,11 @@ def requests_between(since: float, until: float |None = None, route: str|None = 
     if route:
         sql += " AND route = ?"
         args.append(route)
-    with sqlite3.connect(DB_PATH) as conn:
+    with connect() as conn:
         return conn.execute(sql, args).fetchall()
 
 
 def known_routes() -> list[str]:
-    with sqlite3.connect(DB_PATH) as conn:
+    with connect() as conn:
         return [r['route'] for r in conn.execute("SELECT DISTINCT route FROM requests ORDER BY route")]
     

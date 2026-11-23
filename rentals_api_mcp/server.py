@@ -35,7 +35,7 @@ class Overview(BaseModel):
     routes: list[RouteStatus]
 
 
-SLO = {"p95_ms": 300, "errors_rate_pct": 1.0 }
+SLO = {"p95_ms": 300, "error_rate_pct": 1.0 }
 READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 Minutes = Annotated[int, Field(ge=1, le=120)]
 
@@ -69,7 +69,34 @@ def service_overview(minutes: Minutes = 5) -> Overview:
                 error_rate_pct=s["error_rate_pct"],
                 p95_ms=s["p95_ms"]
                 ))
-        
+
+    # Worst routes first: highest error rate, then slowest p95.
+    routes.sort(key=lambda r: (r.error_rate_pct, r.p95_ms), reverse=True)
+
+    slo_breaches = []
+    if total["p95_ms"] > SLO["p95_ms"]:
+        slo_breaches.append(f"p95 latency {total['p95_ms']}ms > {SLO['p95_ms']}ms SLO")
+    if total["error_rate_pct"] > SLO["error_rate_pct"]:
+        slo_breaches.append(f"error rate {total['error_rate_pct']}% > {SLO['error_rate_pct']}% SLO")
+
+    data_warning = None
+    if not rows:
+        data_warning = f"No requests recorded in the last {minutes} minutes - the service may be down or telemetry is not flowing."
+    elif now - max(r["ts"] for r in rows) > 60:
+        data_warning = f"Newest request is {int(now - max(r['ts'] for r in rows))}s old - telemetry may be stale."
+
+    return Overview(
+        as_of=q.clock(now),
+        window_minutes=minutes,
+        version=get_version() or "unknown",
+        requests_per_min=round(total["requests"] / minutes, 1),
+        error_rate_pct=total["error_rate_pct"],
+        p50_ms=total["p50_ms"],
+        p95_ms=total["p95_ms"],
+        slo_breaches=slo_breaches,
+        data_warning=data_warning,
+        routes=routes,
+    )
 
 
 
@@ -121,6 +148,6 @@ def healthz():
 
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=9090)
+    #mcp.run(transport="streamable-http", host="0.0.0.0", port=9090)
     #mcp.run(transport="stdio")
-    #service_overview(minutes=100000)
+    service_overview(minutes=100000)
