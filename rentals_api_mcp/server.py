@@ -3,6 +3,7 @@ from mcp.types import ToolAnnotations
 from typing import Annotated
 from pydantic import Field, BaseModel
 import sqlite3
+import queries as q
 
 mcp = MCPServer(
     name="rentals_api_mcp",
@@ -53,7 +54,24 @@ def service_overview(minutes: Minutes = 5) -> Overview:
     SLO breaches and worst routes first.
     Start every investigation
     """
-    pass
+    now = q.now()
+    rows = q.requests_between(now - minutes * 60)
+    total = q.summarize(rows)
+
+    routes = []
+    for route in sorted({r["route"] for r in rows}):
+        s = q.summarize([r for r in rows if r["route"] == route])
+
+        routes.append(
+            RouteStatus(
+                route=route, 
+                requests=s["requests"],
+                error_rate_pct=s["error_rate_pct"],
+                p95_ms=s["p95_ms"]
+                ))
+        
+
+
 
 
 @mcp.resource(uri="mcp://rentals/version")
@@ -103,5 +121,6 @@ def healthz():
 
 
 if __name__ == "__main__":
-    #mcp.run(transport="streamable-http", host="0.0.0.0", port=9090)
-    mcp.run(transport="stdio")
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=9090)
+    #mcp.run(transport="stdio")
+    #service_overview(minutes=100000)

@@ -1,7 +1,15 @@
 from pathlib import Path
 import sqlite3
+import time
 
 DB_PATH = Path(__file__).resolve().parent.parent / "telemetry.db"
+
+def now() -> float:
+    return time.time()
+
+def clock(ts: float) -> str:
+    return time.strftime("%H:%M:%S", time.localtime(ts))
+
 
 def percentile(values: list[float], pct: float) -> float:
     """
