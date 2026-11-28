@@ -4,12 +4,19 @@ the way an on-call engineer would: requests, logs and deploys. One guarded actio
 
   uv run python -m ops_mcp.server            stdio (for a desktop host)
   uv run python -m ops_mcp.server --http     streamable HTTP on http://127.0.0.1:8000/mcp
+  uv run mcp dev ops_mcp/server.py           the MCP Inspector, in the browser
 
 Never print() here: stdout is the stdio protocol channel. Log to stderr.
 """
 import logging
 import sys
+from pathlib import Path
 from typing import Annotated, Literal
+
+# `mcp dev ops_mcp/server.py` loads this file by path, so make the project root importable.
+PROJECT_ROOT = str(Path(__file__).resolve().parent.parent)
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
