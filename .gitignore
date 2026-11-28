@@ -10,3 +10,4 @@ telemetry.db-wal
 __pycache__/
 *.pyc
 *.log
+.pytest_cache/
